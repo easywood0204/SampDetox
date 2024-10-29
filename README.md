@@ -19,9 +19,14 @@ Defense against BadNets
 python SampDetox.py --against badnet
 ```
 ## Acknowledgement
-Part of the code is borrowed from ,thanks to their great work!
+Part of the code is borrowed from [**BackdoorBench**](https://github.com/SCLBD/BackdoorBench),thanks to their great work!
 ## Citation
 If you find our work insight or useful, please consider citing:
 ```
-
+@inproceedings{SampDetox,
+  author       = {Yanxin Yang, Chentao Jia, DengKe Yan, Ming Hu, Tianlin Li, Xiaofei Xie, Xian Wei, Mingsong Chen},
+  title        = {SampDetox: Black-box Backdoor Defense via Perturbation-based Sample Detoxification},
+  booktitle    = {Proceedings of Neural Information Processing Systems (NeurIPS)},
+  year         = {2024},
+}
 ```
