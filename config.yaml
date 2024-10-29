@@ -1,0 +1,9 @@
+device: 'cuda'
+log:
+batch_size: 128
+num_workers: 4
+pin_memory: True
+dataset_path: './data'
+dataset: 'cifar10'
+model: 'preactresnet18'
+random_seed: 0
