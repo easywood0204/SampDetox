@@ -1,3 +1,5 @@
+# SampDetox: Black-box Backdoor Defense via Perturbation-based Sample Detoxification
+
 ## Introduction
 This repository includes the implementation for our paper "SampDetox: Black-box Backdoor Defense via Perturbation-based Sample Detoxification" accepted by NeurIPS 2024.
 
