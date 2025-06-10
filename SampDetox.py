@@ -41,7 +41,7 @@ def get_mask(image_size, num_blocks, batch_size, num_channels=3, inverted=False)
     return mask.repeat_interleave(repeats=block_len, dim=2).repeat_interleave(repeats=block_len, dim=3)
 
 
-def diffusion(batch_data, batch_bd_label, batch_clean_label, bd_model, image_path):
+def diffusion(batch_data, batch_bd_label, batch_clean_label, bd_model, image_path, idx):
     modelConfig = {
         "state": "train",
         "epoch": 200,
@@ -79,57 +79,67 @@ def diffusion(batch_data, batch_bd_label, batch_clean_label, bd_model, image_pat
 
         mask = get_mask(32, 8, 1, 3, True).to('cuda:0')
         noise = get_noise(mask, 32, 1, 3)[0].to("cuda:0")
-        number_id = 0
-        x0 = batch_data[number_id].unsqueeze(0)
-        save_image(x0[0], 'x0.png')
-        old = copy.deepcopy(x0)
-        T1 = 120
-        T2 = 120
-        t1 = x0.new_ones([x0.shape[0], ], dtype=torch.long) * T1
-        x0 = 2.0 * (x0 - 0.5)
-        xt1 = sampler.extract(sampler.sqrt_alpha_t, t1, x0.shape) * x0 + sampler.extract(sampler.sqrt_1_alpha_t, t1,
-                                                                                         x0.shape) * noise
-        sampledImgs = sampler(xt1, T1, None)
-        x0bar = sampledImgs * 0.5 + 0.5
-        save_image(x0bar[0], 'x0bar.png')
-        new = copy.deepcopy(x0bar)
 
-        from skimage.metrics import structural_similarity
-        old = old.cpu().numpy()
-        new = new.cpu().numpy()
-        a = old[0]
-        b = new[0]
-        ssim, difference = structural_similarity(a, b, data_range=255, channel_axis=0, gaussian_weights=True,
-                                                 sigma=1.5, full=True)
-        difference = torch.tensor(difference)
-        grey = 0.11 * difference[0] + 0.59 * difference[1] + 0.3 * difference[2]
+        final_out = []
 
-        # grey = (grey - torch.mean(grey)) / torch.std(grey)
-        grey = (grey - torch.min(grey)) / (torch.max(grey) - torch.min(grey))
-        save_image(grey, 'trigger.png')
-        t2 = ((1 - grey) * T2).to(torch.int64).to(device)
-        # print(t2)
-        x0bar = 2.0 * (x0bar - 0.5)
-        xtbar = x0bar
-        # print(xtbar.shape)
-        for i in range(32):
-            for j in range(32):
-                a = sampler.extract(sampler.sqrt_alpha_t, t2[i][j].unsqueeze(0), x0bar.shape).squeeze()
-                b = sampler.extract(sampler.sqrt_1_alpha_t,t2[i][j].unsqueeze(0), x0bar.shape).squeeze()
-                for k in range(3):
-                    xtbar[0][k][i][j] = x0bar[0][k][i][j] * a + noise[k][i][j] * b
-        save_image(xtbar*0.5+0.5, 'xtbar.png')
-        outx0 = sampler(xtbar, T2, t2)
-        save_image(outx0[0] * 0.5 + 0.5, image_path+'Detoxified/{}.png'.format(number_id))
-        outx0[0] = outx0[0] * 0.5 + 0.5
-        mean = [0.4914, 0.4822, 0.4465]
-        std = [0.247, 0.243, 0.261]
-        std = torch.as_tensor(std).view(-1, 1, 1).to("cuda:0")
-        mean = torch.as_tensor(mean).view(-1, 1, 1).to("cuda:0")
-        outx0 = outx0.sub_(mean).div_(std)
-        pre = bd_model(outx0)
-        print(pre)
-        print(batch_bd_label[number_id], batch_clean_label[number_id])
+        for number_id in range(len(batch_data)):
+            x0 = batch_data[number_id].unsqueeze(0)
+            # save_image(x0[0], 'x0.png')
+            save_image(x0[0], image_path + 'original/{}.png'.format(number_id + idx * 128))
+            old = copy.deepcopy(x0)
+            T1 = 120
+            T2 = 120
+            t1 = x0.new_ones([x0.shape[0], ], dtype=torch.long) * T1
+            x0 = 2.0 * (x0 - 0.5)
+            xt1 = sampler.extract(sampler.sqrt_alpha_t, t1, x0.shape) * x0 + sampler.extract(sampler.sqrt_1_alpha_t, t1,
+                                                                                             x0.shape) * noise
+            sampledImgs = sampler(xt1, T1, None)
+            x0bar = sampledImgs * 0.5 + 0.5
+            # save_image(x0bar[0], 'x0bar.png')
+            new = copy.deepcopy(x0bar)
+
+            from skimage.metrics import structural_similarity
+            old = old.cpu().numpy()
+            new = new.cpu().numpy()
+            a = old[0]
+            b = new[0]
+            ssim, difference = structural_similarity(a, b, data_range=255, channel_axis=0, gaussian_weights=True,
+                                                     sigma=1.5, full=True)
+            difference = torch.tensor(difference)
+            grey = 0.11 * difference[0] + 0.59 * difference[1] + 0.3 * difference[2]
+
+            # grey = (grey - torch.mean(grey)) / torch.std(grey)
+            grey = (grey - torch.min(grey)) / (torch.max(grey) - torch.min(grey))
+            # save_image(grey, 'trigger.png')
+            save_image(grey, image_path + 'grey/{}.png'.format(number_id + idx * 128))
+            t2 = ((1 - grey) * T2).to(torch.int64).to(device)
+            # print(t2)
+            x0bar = 2.0 * (x0bar - 0.5)
+            xtbar = x0bar
+            # print(xtbar.shape)
+            for i in range(32):
+                for j in range(32):
+                    a = sampler.extract(sampler.sqrt_alpha_t, t2[i][j].unsqueeze(0), x0bar.shape).squeeze()
+                    b = sampler.extract(sampler.sqrt_1_alpha_t,t2[i][j].unsqueeze(0), x0bar.shape).squeeze()
+                    for k in range(3):
+                        xtbar[0][k][i][j] = x0bar[0][k][i][j] * a + noise[k][i][j] * b
+            # save_image(xtbar*0.5+0.5, 'xtbar.png')
+            outx0 = sampler(xtbar, T2, t2)
+            save_image(outx0[0] * 0.5 + 0.5, image_path+'Detoxified/{}.png'.format(number_id+idx*128))
+            outx0[0] = outx0[0] * 0.5 + 0.5
+            mean = [0.4914, 0.4822, 0.4465]
+            std = [0.247, 0.243, 0.261]
+            std = torch.as_tensor(std).view(-1, 1, 1).to("cuda:0")
+            mean = torch.as_tensor(mean).view(-1, 1, 1).to("cuda:0")
+            outx0 = outx0.sub_(mean).div_(std)
+            final_out.append([outx0[0], batch_clean_label[number_id]])
+            # return final_out
+            bd_model.eval()
+            pre = bd_model(outx0)
+            print('classification result:', pre.data.max(1)[1].item())
+            print('attack target label:', batch_bd_label[number_id].item(), 'ground truth label:', batch_clean_label[number_id].item())
+
+
 
 
 class SampDetox(defense):
@@ -194,6 +204,7 @@ class SampDetox(defense):
         logging.info(pformat(args.__dict__))
 
     def defense_with_diffusion(self, data, bd_label, clean_label, bd_model):
+        output = []
         for idx in range(len(data)):
             mean = [0.4914, 0.4822, 0.4465]
             std = [0.247, 0.243, 0.261]
@@ -201,8 +212,9 @@ class SampDetox(defense):
             mean = torch.as_tensor(mean).view(-1, 1, 1).to(self.device)
             data[idx] = data[idx].to(self.device)
             data[idx].mul_(std).add_(mean)
-            diffusion(data[idx], bd_label[idx], clean_label[idx], bd_model, self.args.save_path)
-
+            final_out = diffusion(data[idx], bd_label[idx], clean_label[idx], bd_model, self.args.save_path, idx)
+            output.append(final_out)
+        torch.save(output, 'output.pt')
     def mitigation(self):
         self.device = self.args.device
         fix_random(self.args.random_seed)
@@ -224,7 +236,6 @@ class SampDetox(defense):
             bd_data.append(images)
             bd_label.append(labels)
             clean_label.append(other_info[2])
-            break
         self.defense_with_diffusion(bd_data, bd_label, clean_label, bd_model)
 
     def defense(self, against):
